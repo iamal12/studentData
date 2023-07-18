@@ -1,9 +1,9 @@
 
 
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 part 'studentmodel.g.dart';
-@HiveType(typeId: 1)
-class StudentModel {
+@HiveType(typeId: 0)
+class StudentModel extends HiveObject {
   @HiveField(0)
   int? id;
   @HiveField(1)

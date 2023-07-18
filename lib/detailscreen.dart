@@ -1,167 +1,133 @@
 import 'dart:convert';
-
+import 'dart:io';
+import 'package:provider/provider.dart';
+import 'package:addstudentdata/student_provider.dart';
 import 'package:addstudentdata/dbfunctions.dart';
 import 'package:addstudentdata/studentmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
-class DetailedScreen extends StatefulWidget {
+
+class DetailedScreen extends StatelessWidget {
   final int index;
+
   DetailedScreen(this.index);
 
   @override
-  State<DetailedScreen> createState() => _DetailedScreenState();
-}
-
-class _DetailedScreenState extends State<DetailedScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _ageController;
-  late TextEditingController _departmentController;
-  late StudentModel _studentModel;
-
-  @override
-  void initState(){
-    super.initState();
-    _nameController = TextEditingController();
-    _ageController = TextEditingController();
-    _departmentController = TextEditingController();
-    final studentList = studentListNotifier.value;
-    _studentModel = studentList[widget.index];
-    _nameController.text = _studentModel.name;
-    _ageController.text = _studentModel.age.toString();
-    _departmentController.text = _studentModel.department;
-  }
-
-  @override
-  void dispose(){
-    _nameController.dispose();
-    _ageController.dispose();
-    _departmentController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _updateStudent(StudentModel studentModel) async {
-    if (_formKey.currentState!.validate()) {
-      final studentList = studentListNotifier.value;
-      final updatedStudent = StudentModel(
-        id: _studentModel.id,
-        name: _nameController.text,
-        age: (_ageController.text),
-        department: _departmentController.text,
-        profilePhoto: _studentModel.profilePhoto,
-        location: _studentModel.location
-      );
-      studentList[widget.index] = updatedStudent;
-      final box = await Hive.openBox<StudentModel>('student_db');
-      await box.put(_studentModel.id, _studentModel);
-      studentListNotifier.value = studentList;
-      notifyListeners();
-
-    }
-  }
-
-
-  @override
   Widget build(BuildContext context) {
-    final base64Image = _studentModel.profilePhoto;
-    final imageBytes = base64.decode(base64Image!);
-
-    return ValueListenableBuilder<List<StudentModel>>(
-      valueListenable: studentListNotifier,
-      builder: (BuildContext context, List<StudentModel> studentList, Widget? child) {
-        final data = studentList[widget.index];
-        final base64Image = data.profilePhoto;
+    return Consumer<StudentProvider>(
+      builder: (context, studentProvider, _) {
+        final studentList = studentProvider.studentList;
+        final studentModel = studentList[index];
+        final base64Image = studentModel.profilePhoto;
         final imageBytes = base64.decode(base64Image!);
-        return Scaffold(
+        final _nameController = TextEditingController(text: studentModel.name);
+        final _ageController = TextEditingController(text: studentModel.age);
+        final _departmentController = TextEditingController(text: studentModel.department);
 
-          resizeToAvoidBottomInset: false,
-          appBar: AppBar(title: Text("Detailed Student Info"),
-          actions: [
-            IconButton(onPressed: (){
-              showDialog(context: context, builder: (context) => AlertDialog(
-                title: Text("Edit Student Info"),
-                content: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          labelText: "Name",
-                        ),
-                        validator: (value){
-                          if(value ==null || value.isEmpty){
-                            return "Please Enter a name";
-                          }
-                          return null;
-                        },
+        void _updateStudent() {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text("Edit Student Info"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      child: Image(image: MemoryImage(imageBytes)),
+                      onTap: () async {
+                        final picker = ImagePicker();
+                        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+                        if (pickedFile != null) {
+                          final imageFile = File(pickedFile.path);
+
+                        }
+                      },
+                    ),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: "Name",
                       ),
-
-
-                      TextFormField(
-                        controller: _ageController,
-                        decoration: InputDecoration(
-                          labelText: "Age",
-                        ),
-                        validator: (value){
-                          if(value ==null || value.isEmpty){
-                            return "Please Enter a valid age";
-                          }
-                          return null;
-                        },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "Please Enter a name";
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: _ageController,
+                      decoration: InputDecoration(
+                        labelText: "Age",
                       ),
-
-
-                      TextFormField(
-                        controller: _departmentController,
-                        decoration: InputDecoration(
-                          labelText: "Department",
-                        ),
-                        validator: (value){
-                          if(value ==null || value.isEmpty){
-                            return "Please Enter a department";
-                          }
-                          return null;
-                        },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "Please Enter a valid age";
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: _departmentController,
+                      decoration: InputDecoration(
+                        labelText: "Department",
                       ),
-
-                    ],
-                  ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "Please Enter a department";
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-
-                actions: [
-                  TextButton(
-                    onPressed: () {
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_nameController.text.isNotEmpty &&
+                        _ageController.text.isNotEmpty &&
+                        _departmentController.text.isNotEmpty) {
+                      final updatedStudent = StudentModel(
+                        id: studentModel.id,
+                        name: _nameController.text,
+                        age: _ageController.text,
+                        department: _departmentController.text,
+                        profilePhoto: base64Image,
+                        location: studentModel.location,
+                      );
+                      studentProvider.updateStudent(updatedStudent, studentModel.id!);
                       Navigator.pop(context);
-                    },
-                    child: Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        final updatedStudent = StudentModel(
-                          name:_nameController.text,
-                          age: (_ageController.text),
-                          department:_departmentController.text,
-                          profilePhoto: _studentModel.profilePhoto,
-                          location: _studentModel.location
-                        );
-                        studentListNotifier.value[widget.index] = updatedStudent;
-                        _updateStudent(updatedStudent);
-                        setState(() {});
-                        notifyListeners();
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Text('Save'),
-                  ),
-                ],
+                      studentProvider.notifyListeners();
+                    }
+                  },
+                  child: Text('Save'),
+                ),
+              ],
+            ),
+          );
+        }
 
-              ));
-            }, icon: Icon(Icons.edit))
-          ],
+        return Scaffold(
+          resizeToAvoidBottomInset: false,
+          appBar: AppBar(
+            title: Text("Detailed Student Info"),
+            actions: [
+              IconButton(
+                onPressed: _updateStudent,
+                icon: Icon(Icons.edit),
+              ),
+            ],
           ),
           body: Center(
             child: Container(
@@ -184,22 +150,22 @@ class _DetailedScreenState extends State<DetailedScreen> {
                 children: [
                   CircleAvatar(
                     radius: 90,
-                    backgroundImage: MemoryImage(imageBytes), // Use the photoUrl from the student data
+                    backgroundImage: MemoryImage(imageBytes),
                   ),
                   SizedBox(height: 10),
                   Text(
-                    data.name,
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold,color: Colors.blue),
+                    studentModel.name,
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Age: ${data.age}', // Use string interpolation to display age
+                    'Age: ${studentModel.age}',
                     style: TextStyle(fontSize: 20, color: Colors.red),
                   ),
                   SizedBox(height: 9),
                   Text(
-                    data.department,
-                    style: TextStyle(fontSize: 16,color: Colors.black),
+                    studentModel.department,
+                    style: TextStyle(fontSize: 16, color: Colors.black),
                   ),
                 ],
               ),
@@ -210,3 +176,4 @@ class _DetailedScreenState extends State<DetailedScreen> {
     );
   }
 }
+
